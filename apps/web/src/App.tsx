@@ -1,11 +1,10 @@
-
+import CodeEditor from './components/CodeEditor'
 import { useCallback, useEffect, useState } from 'react'
 import {
   Activity,
   Bell,
   Braces,
   ChevronDown,
-  CircleDot,
   Code2,
   FileCode2,
   Files,
@@ -18,7 +17,6 @@ import {
   ShieldCheck,
   Terminal,
   Workflow,
-  Zap,
 } from 'lucide-react'
 
 type ApiStatus = 'checking' | 'online' | 'offline'
@@ -386,9 +384,11 @@ function App() {
               </div>
             </div>
 
+
             {/* Editor canvas */}
             <div className="flex min-h-0 flex-1 flex-col bg-white/55">
 
+              {/* Editor tabs */}
               <div className="flex h-11 shrink-0 items-center gap-2 border-b border-slate-200/70 bg-white/50 px-4">
 
                 <div className="flex h-full items-center gap-2 border-b-2 border-sky-500 px-2 text-xs font-semibold text-slate-700">
@@ -402,193 +402,118 @@ function App() {
                   <span className="h-1 w-1 rounded-full bg-slate-300" />
                   <span>UTF-8</span>
                 </div>
+
               </div>
 
-              <div className="flex min-h-0 flex-1 items-start overflow-auto p-5 sm:p-8">
+              {/* Actual CodeMirror editor */}
+              <div className="min-h-0 flex-1 overflow-hidden">
+                <CodeEditor />
+              </div>
 
-                <div className="mx-auto w-full max-w-3xl">
+            </div>
 
-                  <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                      <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-sky-600">
-                        <Zap size={13} />
-                        Your development workspace
-                      </div>
 
-                      <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-                        Welcome to TraceForge.
-                      </h2>
 
-                      <p className="mt-2 max-w-lg text-sm leading-relaxed text-slate-500">
-                        One workspace for building software and understanding how it works, from source code to execution.
-                      </p>
-                    </div>
 
-                    <div className="rounded-xl border border-sky-100 bg-sky-50/70 px-3 py-2 text-xs font-medium text-sky-700">
-                      Early development
-                    </div>
-                  </div>
+            {/* Bottom panel */}
+            <div className="flex h-56 shrink-0 flex-col border-t border-slate-200/80 bg-white/70 sm:h-48">
 
-                  <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
+              <div className="flex h-10 shrink-0 items-center gap-5 border-b border-slate-100 px-4">
 
-                    <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <Code2 size={15} className="text-sky-600" />
-                        <span className="text-xs font-semibold text-slate-700">
-                          Workspace overview
-                        </span>
-                      </div>
-                      <span className="text-[10px] text-slate-400">
-                        TraceForge IDE
+                <button
+                  type="button"
+                  onClick={() => setActivePanel('terminal')}
+                  className={`flex h-full items-center gap-2 border-b-2 text-[11px] font-semibold transition ${activePanel === 'terminal'
+                    ? 'border-sky-500 text-sky-700'
+                    : 'border-transparent text-slate-400 hover:text-slate-700'
+                    }`}
+                >
+                  <Terminal size={14} />
+                  Terminal
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActivePanel('problems')}
+                  className={`flex h-full items-center gap-2 border-b-2 text-[11px] font-semibold transition ${activePanel === 'problems'
+                    ? 'border-sky-500 text-sky-700'
+                    : 'border-transparent text-slate-400 hover:text-slate-700'
+                    }`}
+                >
+                  <Activity size={14} />
+                  Problems
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActivePanel('output')}
+                  className={`flex h-full items-center gap-2 border-b-2 text-[11px] font-semibold transition ${activePanel === 'output'
+                    ? 'border-sky-500 text-sky-700'
+                    : 'border-transparent text-slate-400 hover:text-slate-700'
+                    }`}
+                >
+                  <Braces size={14} />
+                  Output
+                </button>
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-auto p-4 font-mono text-xs">
+
+                {activePanel === 'terminal' && (
+                  <div className="space-y-2">
+                    <p className="text-slate-500">
+                      <span className="font-bold text-sky-600">➜</span>
+                      {' '}TraceForge development environment
+                    </p>
+
+                    <p className="text-slate-500">
+                      <span className="text-sky-600">INFO</span>
+                      {' '}Frontend workspace initialized.
+                    </p>
+
+                    <p className="text-slate-500">
+                      <span className={apiStatus === 'online' ? 'text-emerald-600' : 'text-amber-600'}>
+                        {apiStatus === 'online' ? 'PASS' : apiStatus === 'checking' ? 'WAIT' : 'ERROR'}
                       </span>
-                    </div>
+                      {' '}Backend connection: {apiStatus}
+                    </p>
 
-                    <div className="grid gap-3 p-4 sm:grid-cols-2">
-
-                      <div className="rounded-xl border border-slate-100 bg-gradient-to-br from-sky-50 to-white p-4">
-                        <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-white text-sky-600 shadow-sm">
-                          <Files size={18} />
-                        </div>
-                        <p className="text-sm font-semibold text-slate-800">
-                          Project workspace
-                        </p>
-                        <p className="mt-1 text-xs leading-relaxed text-slate-500">
-                          Organize your source files and development projects in one place.
-                        </p>
-                      </div>
-
-                      <div className="rounded-xl border border-slate-100 bg-gradient-to-br from-blue-50 to-white p-4">
-                        <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-white text-blue-600 shadow-sm">
-                          <Workflow size={18} />
-                        </div>
-                        <p className="text-sm font-semibold text-slate-800">
-                          Compiler Lens
-                        </p>
-                        <p className="mt-1 text-xs leading-relaxed text-slate-500">
-                          Explore how your code moves through the compilation pipeline.
-                        </p>
-                      </div>
-
-                    </div>
-
-                    <div className="border-t border-slate-100 bg-slate-50/70 px-4 py-3">
-                      <p className="text-xs leading-relaxed text-slate-500">
-                        The interactive code editor, language engine and execution system will be added as separate tested modules.
+                    {apiError && (
+                      <p className="text-rose-600">
+                        {apiError}
                       </p>
-                    </div>
+                    )}
+
+                    <p className="text-slate-400">
+                      Integrated terminal execution will be connected in a later milestone.
+                    </p>
                   </div>
+                )}
 
-                  <div className="mt-5 flex flex-wrap items-center gap-3 text-xs text-slate-400">
-                    <span className="flex items-center gap-1.5">
-                      <CircleDot size={13} className="text-sky-500" />
-                      Workspace initialized
-                    </span>
-                    <span className="h-1 w-1 rounded-full bg-slate-300" />
-                    <span>Editor integration next</span>
+                {activePanel === 'problems' && (
+                  <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+                    <ShieldCheck size={22} className="text-sky-600" />
+                    <p className="font-sans text-sm font-semibold text-slate-700">
+                      Diagnostics panel
+                    </p>
+                    <p className="font-sans text-xs text-slate-400">
+                      Editor diagnostics will appear here after editor integration.
+                    </p>
                   </div>
-                </div>
-              </div>
+                )}
 
-              {/* Bottom panel */}
-              <div className="flex h-56 shrink-0 flex-col border-t border-slate-200/80 bg-white/70 sm:h-48">
+                {activePanel === 'output' && (
+                  <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+                    <Braces size={22} className="text-sky-600" />
+                    <p className="font-sans text-sm font-semibold text-slate-700">
+                      Build output
+                    </p>
+                    <p className="font-sans text-xs text-slate-400">
+                      Compiler and build results will appear here.
+                    </p>
+                  </div>
+                )}
 
-                <div className="flex h-10 shrink-0 items-center gap-5 border-b border-slate-100 px-4">
-
-                  <button
-                    type="button"
-                    onClick={() => setActivePanel('terminal')}
-                    className={`flex h-full items-center gap-2 border-b-2 text-[11px] font-semibold transition ${activePanel === 'terminal'
-                      ? 'border-sky-500 text-sky-700'
-                      : 'border-transparent text-slate-400 hover:text-slate-700'
-                      }`}
-                  >
-                    <Terminal size={14} />
-                    Terminal
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setActivePanel('problems')}
-                    className={`flex h-full items-center gap-2 border-b-2 text-[11px] font-semibold transition ${activePanel === 'problems'
-                      ? 'border-sky-500 text-sky-700'
-                      : 'border-transparent text-slate-400 hover:text-slate-700'
-                      }`}
-                  >
-                    <Activity size={14} />
-                    Problems
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setActivePanel('output')}
-                    className={`flex h-full items-center gap-2 border-b-2 text-[11px] font-semibold transition ${activePanel === 'output'
-                      ? 'border-sky-500 text-sky-700'
-                      : 'border-transparent text-slate-400 hover:text-slate-700'
-                      }`}
-                  >
-                    <Braces size={14} />
-                    Output
-                  </button>
-                </div>
-
-                <div className="min-h-0 flex-1 overflow-auto p-4 font-mono text-xs">
-
-                  {activePanel === 'terminal' && (
-                    <div className="space-y-2">
-                      <p className="text-slate-500">
-                        <span className="font-bold text-sky-600">➜</span>
-                        {' '}TraceForge development environment
-                      </p>
-
-                      <p className="text-slate-500">
-                        <span className="text-sky-600">INFO</span>
-                        {' '}Frontend workspace initialized.
-                      </p>
-
-                      <p className="text-slate-500">
-                        <span className={apiStatus === 'online' ? 'text-emerald-600' : 'text-amber-600'}>
-                          {apiStatus === 'online' ? 'PASS' : apiStatus === 'checking' ? 'WAIT' : 'ERROR'}
-                        </span>
-                        {' '}Backend connection: {apiStatus}
-                      </p>
-
-                      {apiError && (
-                        <p className="text-rose-600">
-                          {apiError}
-                        </p>
-                      )}
-
-                      <p className="text-slate-400">
-                        Integrated terminal execution will be connected in a later milestone.
-                      </p>
-                    </div>
-                  )}
-
-                  {activePanel === 'problems' && (
-                    <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-                      <ShieldCheck size={22} className="text-sky-600" />
-                      <p className="font-sans text-sm font-semibold text-slate-700">
-                        Diagnostics panel
-                      </p>
-                      <p className="font-sans text-xs text-slate-400">
-                        Editor diagnostics will appear here after editor integration.
-                      </p>
-                    </div>
-                  )}
-
-                  {activePanel === 'output' && (
-                    <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-                      <Braces size={22} className="text-sky-600" />
-                      <p className="font-sans text-sm font-semibold text-slate-700">
-                        Build output
-                      </p>
-                      <p className="font-sans text-xs text-slate-400">
-                        Compiler and build results will appear here.
-                      </p>
-                    </div>
-                  )}
-
-                </div>
               </div>
             </div>
           </section>
@@ -596,7 +521,7 @@ function App() {
       </div>
 
       {/* Status bar */}
-      <footer className="relative z-10 flex h-7 shrink-0 items-center justify-between border-t border-white/70 bg-white/55 px-4 text-[10px] font-medium text-slate-500 backdrop-blur-xl">
+     <footer className="relative z-10 flex h-7 shrink-0 items-center justify-between border-t border-white/70 bg-white/55 px-4 text-[10px] font-medium text-slate-500 backdrop-blur-xl">
 
         <div className="flex items-center gap-4">
           <span className="flex items-center gap-1.5">
