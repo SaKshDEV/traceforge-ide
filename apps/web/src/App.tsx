@@ -1,5 +1,5 @@
-import CodeEditor from './components/CodeEditor'
-import { useCallback, useEffect, useState } from 'react'
+import CodeEditor, { defaultCode } from './components/CodeEditor'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Activity,
   Bell,
@@ -12,6 +12,7 @@ import {
   GitBranch,
   Play,
   RefreshCw,
+  Save,
   Search,
   Settings2,
   ShieldCheck,
@@ -38,6 +39,32 @@ function App() {
   const [activePanel, setActivePanel] = useState<BottomPanel>('terminal')
 
 
+  const [initialDraft] = useState(() => {
+    try {
+      const savedCode = window.localStorage.getItem('traceforge: active-file')
+
+      return {
+        code: savedCode ?? defaultCode,
+        hasSavedCode: savedCode !== null,
+      }
+    } catch {
+      return {
+        code: defaultCode,
+        hasSavedCode: false,
+      }
+    }
+  })
+
+  const [editorCode, setEditorCode] = useState(initialDraft.code)
+
+
+  const [saveStatus, setSaveStatus] = useState<
+    'ready' | 'saved' | 'unsaved' | 'error'>(initialDraft.hasSavedCode ? 'saved' : 'unsaved')
+  const savedCodeRef = useRef(initialDraft.code)
+
+  const hasSavedDraftRef = useRef(initialDraft.hasSavedCode)
+
+
   const fetchBackendHealth = useCallback(async (): Promise<HealthResponse> => {
     const response = await fetch('/api/health')
 
@@ -53,6 +80,23 @@ function App() {
 
     return data
   }, [])
+
+  const saveEditorCode = useCallback(() => {
+    try {
+      window.localStorage.setItem(
+        'traceforge: active-file',
+        editorCode,
+      )
+
+      savedCodeRef.current = editorCode
+      hasSavedDraftRef.current = true
+
+      setSaveStatus('saved')
+    } catch {
+      setSaveStatus('error')
+    }
+  },
+    [editorCode])
 
   useEffect(() => {
     let isActive = true
@@ -361,28 +405,38 @@ function App() {
           <section className="flex min-w-0 flex-1 flex-col">
 
             {/* Editor toolbar */}
-            <div className="flex h-12 shrink-0 items-center justify-between border-b border-slate-200/70 bg-white/45 px-4">
 
-              <div className="flex items-center gap-2 overflow-hidden text-xs">
-                <span className="text-slate-400">traceforge-ide</span>
-                <span className="text-slate-300">/</span>
-                <span className="text-slate-400">apps</span>
-                <span className="text-slate-300">/</span>
-                <span className="font-semibold text-sky-700">App.tsx</span>
-              </div>
+            <div className="flex items-center gap-2">
+              <span className="hidden text-[10px] text-slate-400 sm:inline">
+                {saveStatus === 'saved'
+                  ? 'Saved locally'
+                  : saveStatus === 'unsaved'
+                    ? 'Unsaved changes'
+                    : saveStatus === 'error'
+                      ? 'Save failed'
+                      : 'Ready'}
+              </span>
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  disabled
-                  title="Code execution will be enabled after editor and runner integration"
-                  className="flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-400"
-                >
-                  <Play size={13} />
-                  Run
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={saveEditorCode}
+                className="flex items-center gap-2 rounded-lg border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-700 shadow-sm transition hover:bg-sky-50 hover:shadow-md"
+              >
+                <Save size={13} />
+                Save
+              </button>
+
+              <button
+                type="button"
+                disabled
+                title="Code execution will be enabled after runner integration"
+                className="flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-400"
+              >
+                <Play size={13} />
+                Run
+              </button>
             </div>
+
 
 
             {/* Editor canvas */}
@@ -407,7 +461,22 @@ function App() {
 
               {/* Actual CodeMirror editor */}
               <div className="min-h-0 flex-1 overflow-hidden">
-                <CodeEditor />
+
+                <CodeEditor
+                  initialValue={initialDraft.code}
+                  onChange={(value) => {
+                    setEditorCode(value)
+
+                    if (value === savedCodeRef.current) {
+                      setSaveStatus(
+                        hasSavedDraftRef.current ? 'saved' : 'ready'
+                      )
+                    } else {
+                      setSaveStatus('unsaved')
+                    }
+                  }}
+                />
+
               </div>
 
             </div>
@@ -521,7 +590,7 @@ function App() {
       </div>
 
       {/* Status bar */}
-     <footer className="relative z-10 flex h-7 shrink-0 items-center justify-between border-t border-white/70 bg-white/55 px-4 text-[10px] font-medium text-slate-500 backdrop-blur-xl">
+      <footer className="relative z-10 flex h-7 shrink-0 items-center justify-between border-t border-white/70 bg-white/55 px-4 text-[10px] font-medium text-slate-500 backdrop-blur-xl">
 
         <div className="flex items-center gap-4">
           <span className="flex items-center gap-1.5">

@@ -8,7 +8,7 @@ type CodeEditorProps = {
   onChange?: (value: string) => void
 }
 
-const defaultCode = `// Welcome to TraceForge
+export const defaultCode = `// Welcome to TraceForge
 // Your code editor is now ready!
 
 type Developer = {
