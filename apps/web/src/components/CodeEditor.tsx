@@ -33,7 +33,8 @@ function CodeEditor({
   onChange,
 }: CodeEditorProps) {
   const editorRef = useRef<HTMLDivElement | null>(null)
-
+  
+  const initialValueRef = useRef(initialValue)
   const onChangeRef = useRef(onChange)
 
   useEffect(() => {
@@ -44,7 +45,7 @@ function CodeEditor({
     if (!editorRef.current) return
 
     const editor = new EditorView({
-      doc: initialValue,
+      doc: initialValueRef.current,
 
       extensions: [
         basicSetup,
@@ -118,7 +119,7 @@ function CodeEditor({
     return () => {
       editor.destroy()
     }
-  }, [initialValue])
+  }, [])
 
   return (
     <div
