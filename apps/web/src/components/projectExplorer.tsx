@@ -38,14 +38,23 @@ function ProjectExplorer({
     }
 
     // Prevent path separators and invalid filename characters.
-    if (
-      /[<>:"/\\|?*\x00-\x1F]/.test(trimmedName) ||
-      trimmedName === '.' ||
-      trimmedName === '..'
-    ) {
-      setError('Please enter a valid file name.')
-      return
-    }
+    const hasInvalidCharacter = [...trimmedName].some((character) => {
+  const code = character.charCodeAt(0)
+
+  return (
+    '<>:"/\\|?*'.includes(character) ||
+    code <= 31
+  )
+})
+
+if (
+  hasInvalidCharacter ||
+  trimmedName === '.' ||
+  trimmedName === '..'
+) {
+  setError('Please enter a valid file name.')
+  return
+}
 
     // Prevent duplicate filenames.
     const alreadyExists = files.some(
