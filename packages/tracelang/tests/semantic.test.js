@@ -60,3 +60,10 @@ test('reports multiple undefined variables', () => {
 
   assert.equal(result.errors.length, 2)
 })
+test('reports the exact location of an undefined variable', () => {
+  const result = analyzeSource('let total = age + 10;')
+
+  assert.equal(result.errors.length, 1)
+  assert.equal(result.errors[0].line, 1)
+  assert.equal(result.errors[0].column, 13)
+})
