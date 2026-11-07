@@ -67,3 +67,21 @@ test('reports the exact location of an undefined variable', () => {
   assert.equal(result.errors[0].line, 1)
   assert.equal(result.errors[0].column, 13)
 })
+test('reports multiple semantic errors with correct line and column', () => {
+  const result = analyzeSource(
+    'let first = missing;\nlet second = absent;',
+  )
+
+  assert.equal(result.errors.length, 2)
+
+  assert.deepEqual(
+    result.errors.map((error) => ({
+      line: error.line,
+      column: error.column,
+    })),
+    [
+      { line: 1, column: 13 },
+      { line: 2, column: 14 },
+    ],
+  )
+})
