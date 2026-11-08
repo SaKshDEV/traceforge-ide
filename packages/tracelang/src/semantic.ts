@@ -11,25 +11,46 @@ export type SemanticError = {
   line: number
   column: number
 }
+export type SemanticWarning = {
+  message: string
+  line: number
+  column: number
+}
 
 export type SemanticResult = {
   errors: SemanticError[]
+  warnings: SemanticWarning[]
 }
 
 export class SemanticAnalyzer {
   private declaredVariables = new Map<string, Token>()
   private errors: SemanticError[] = []
 
+  private warnings: SemanticWarning[] = []
+  private usedVariables = new Set<string>()
+
   analyze(program: Program): SemanticResult {
     this.declaredVariables.clear()
     this.errors = []
+    this.warnings = []
+    this.usedVariables.clear()
 
     for (const statement of program.statements) {
       this.analyzeStatement(statement)
     }
+    for (const [name, token] of this.declaredVariables) {
+      if (!this.usedVariables.has(name)) {
+        this.warnings.push({
+          message: `Variable '${name}' is declared but never used.`,
+          line: token.line,
+          column: token.column,
+        })
+      }
+    }
 
     return {
       errors: this.errors,
+      warnings: this.warnings,
     }
   }
 
@@ -80,6 +101,8 @@ export class SemanticAnalyzer {
             `Variable '${variableName}' is not declared.`,
             expression.name,
           )
+        } else {
+          this.usedVariables.add(variableName)
         }
 
         return

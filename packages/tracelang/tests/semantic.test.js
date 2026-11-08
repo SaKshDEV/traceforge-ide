@@ -85,3 +85,24 @@ test('reports multiple semantic errors with correct line and column', () => {
     ],
   )
 })
+test('warns when a variable is never used', () => {
+  const result = analyzeSource('let age = 21;')
+
+  assert.equal(result.errors.length, 0)
+  assert.equal(result.warnings.length, 1)
+  assert.equal(
+    result.warnings[0].message,
+    "Variable 'age' is declared but never used.",
+  )
+})
+
+test('does not warn when a variable is used', () => {
+  const result = analyzeSource(`
+    let age = 21;
+    let total = age + 10;
+    total;
+  `)
+
+  assert.equal(result.errors.length, 0)
+  assert.equal(result.warnings.length, 0)
+})

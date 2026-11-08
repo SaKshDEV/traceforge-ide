@@ -2,6 +2,7 @@ export { Lexer, tokenize } from './lexer.js'
 export type { LexError, LexResult } from './lexer.js'
 export { SemanticAnalyzer, analyze } from './semantic.js'
 export type { SemanticError, SemanticResult } from './semantic.js'
+export type { SemanticWarning } from './semantic.js'
 
 export { Parser, parseTokens } from './parser.js'
 export type { ParseError, ParseResult } from './parser.js'
