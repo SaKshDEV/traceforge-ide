@@ -1,3 +1,4 @@
+
 import type {
   Program,
   Statement,
@@ -11,6 +12,7 @@ export type SemanticError = {
   line: number
   column: number
 }
+
 export type SemanticWarning = {
   message: string
   line: number
@@ -22,15 +24,18 @@ export type SemanticResult = {
   warnings: SemanticWarning[]
 }
 
+type ValueType = 'number' | 'string' | 'boolean' | 'null' | 'unknown'
+
 export class SemanticAnalyzer {
   private declaredVariables = new Map<string, Token>()
+  private variableTypes = new Map<string, ValueType>()
   private errors: SemanticError[] = []
-
   private warnings: SemanticWarning[] = []
   private usedVariables = new Set<string>()
 
   analyze(program: Program): SemanticResult {
     this.declaredVariables.clear()
+    this.variableTypes.clear()
     this.errors = []
     this.warnings = []
     this.usedVariables.clear()
@@ -38,6 +43,7 @@ export class SemanticAnalyzer {
     for (const statement of program.statements) {
       this.analyzeStatement(statement)
     }
+
     for (const [name, token] of this.declaredVariables) {
       if (!this.usedVariables.has(name)) {
         this.warnings.push({
@@ -61,7 +67,7 @@ export class SemanticAnalyzer {
     }
 
     if (statement.kind === 'ExpressionStatement') {
-      this.analyzeExpression(statement.expression)
+      this.inferExpressionType(statement.expression)
     }
   }
 
@@ -70,12 +76,11 @@ export class SemanticAnalyzer {
   ): void {
     const variableName = declaration.name.lexeme
 
-    // Check the initializer before declaring the variable.
-    if (declaration.initializer !== null) {
-      this.analyzeExpression(declaration.initializer)
-    }
+    const inferredType =
+      declaration.initializer === null
+        ? 'unknown'
+        : this.inferExpressionType(declaration.initializer)
 
-    // Check whether this variable was already declared.
     if (this.declaredVariables.has(variableName)) {
       this.addError(
         `Variable '${variableName}' is already declared.`,
@@ -84,14 +89,14 @@ export class SemanticAnalyzer {
       return
     }
 
-    // Store the variable after successful declaration.
     this.declaredVariables.set(variableName, declaration.name)
+    this.variableTypes.set(variableName, inferredType)
   }
 
-  private analyzeExpression(expression: Expression): void {
+  private inferExpressionType(expression: Expression): ValueType {
     switch (expression.kind) {
       case 'LiteralExpression':
-        return
+        return this.getLiteralType(expression.value)
 
       case 'IdentifierExpression': {
         const variableName = expression.name.lexeme
@@ -101,26 +106,124 @@ export class SemanticAnalyzer {
             `Variable '${variableName}' is not declared.`,
             expression.name,
           )
-        } else {
-          this.usedVariables.add(variableName)
+          return 'unknown'
         }
 
-        return
+        this.usedVariables.add(variableName)
+        return this.variableTypes.get(variableName) ?? 'unknown'
       }
 
       case 'GroupingExpression':
-        this.analyzeExpression(expression.expression)
-        return
+        return this.inferExpressionType(expression.expression)
 
-      case 'UnaryExpression':
-        this.analyzeExpression(expression.right)
-        return
+      case 'UnaryExpression': {
+        const rightType = this.inferExpressionType(expression.right)
 
-      case 'BinaryExpression':
-        this.analyzeExpression(expression.left)
-        this.analyzeExpression(expression.right)
-        return
+        if (expression.operator.kind === 'Minus') {
+          if (rightType !== 'number' && rightType !== 'unknown') {
+            this.addError(
+              "Unary '-' requires a number.",
+              expression.operator,
+            )
+          }
+
+          return 'number'
+        }
+
+        if (expression.operator.kind === 'Bang') {
+          if (rightType !== 'boolean' && rightType !== 'unknown') {
+            this.addError(
+              "Unary '!' requires a boolean.",
+              expression.operator,
+            )
+          }
+
+          return 'boolean'
+        }
+
+        return 'unknown'
+      }
+
+      case 'BinaryExpression': {
+        const leftType = this.inferExpressionType(expression.left)
+        const rightType = this.inferExpressionType(expression.right)
+        const operator = expression.operator
+
+        if (
+          operator.kind === 'Plus' ||
+          operator.kind === 'Minus' ||
+          operator.kind === 'Star' ||
+          operator.kind === 'Slash' ||
+          operator.kind === 'Percent'
+        ) {
+          if (
+            operator.kind === 'Plus' &&
+            leftType === 'string' &&
+            rightType === 'string'
+          ) {
+            return 'string'
+          }
+
+          if (
+            (leftType !== 'number' && leftType !== 'unknown') ||
+            (rightType !== 'number' && rightType !== 'unknown')
+          ) {
+            this.addError(
+              `Operator '${operator.lexeme}' requires two numbers.`,
+              operator,
+            )
+          }
+
+          return 'number'
+        }
+
+        if (
+          operator.kind === 'Greater' ||
+          operator.kind === 'GreaterEqual' ||
+          operator.kind === 'Less' ||
+          operator.kind === 'LessEqual'
+        ) {
+          if (
+            (leftType !== 'number' && leftType !== 'unknown') ||
+            (rightType !== 'number' && rightType !== 'unknown')
+          ) {
+            this.addError(
+              `Operator '${operator.lexeme}' requires two numbers.`,
+              operator,
+            )
+          }
+
+          return 'boolean'
+        }
+
+        if (
+          operator.kind === 'EqualEqual' ||
+          operator.kind === 'BangEqual'
+        ) {
+          if (
+            leftType !== 'unknown' &&
+            rightType !== 'unknown' &&
+            leftType !== rightType
+          ) {
+            this.addError(
+              'Equality operands must have matching types.',
+              operator,
+            )
+          }
+
+          return 'boolean'
+        }
+
+        return 'unknown'
+      }
     }
+  }
+
+  private getLiteralType(value: string | number | boolean | null): ValueType {
+    if (typeof value === 'number') return 'number'
+    if (typeof value === 'string') return 'string'
+    if (typeof value === 'boolean') return 'boolean'
+    return 'null'
   }
 
   private addError(message: string, token: Token): void {
