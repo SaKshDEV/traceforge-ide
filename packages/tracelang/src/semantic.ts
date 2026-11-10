@@ -68,6 +68,33 @@ export class SemanticAnalyzer {
 
     if (statement.kind === 'ExpressionStatement') {
       this.inferExpressionType(statement.expression)
+      return
+    }
+
+    if (statement.kind === 'IfStatement') {
+      const conditionType = this.inferExpressionType(
+        statement.condition,
+      )
+
+      if (
+        conditionType !== 'boolean' &&
+        conditionType !== 'unknown'
+      ) {
+        this.addError(
+          'If condition must be a boolean.',
+          this.getExpressionToken(statement.condition),
+        )
+      }
+
+      for (const child of statement.thenBranch) {
+        this.analyzeStatement(child)
+      }
+
+      if (statement.elseBranch !== null) {
+        for (const child of statement.elseBranch) {
+          this.analyzeStatement(child)
+        }
+      }
     }
   }
 
@@ -216,6 +243,33 @@ export class SemanticAnalyzer {
 
         return 'unknown'
       }
+    }
+
+    return 'unknown'
+  }
+
+  private getExpressionToken(expression: Expression): Token {
+    switch (expression.kind) {
+      case 'LiteralExpression':
+        return {
+          kind: 'EOF',
+          lexeme: '',
+          literal: null,
+          line: 1,
+          column: 1,
+        }
+
+      case 'IdentifierExpression':
+        return expression.name
+
+      case 'GroupingExpression':
+        return this.getExpressionToken(expression.expression)
+
+      case 'UnaryExpression':
+        return expression.operator
+
+      case 'BinaryExpression':
+        return expression.operator
     }
   }
 

@@ -1,4 +1,3 @@
-
 import type { Token, TokenLiteral } from './token.js'
 
 export type Program = {
@@ -9,6 +8,7 @@ export type Program = {
 export type Statement =
   | VariableDeclaration
   | ExpressionStatement
+  | IfStatement
 
 export type VariableDeclaration = {
   kind: 'VariableDeclaration'
@@ -20,6 +20,13 @@ export type VariableDeclaration = {
 export type ExpressionStatement = {
   kind: 'ExpressionStatement'
   expression: Expression
+}
+
+export type IfStatement = {
+  kind: 'IfStatement'
+  condition: Expression
+  thenBranch: Statement[]
+  elseBranch: Statement[] | null
 }
 
 export type Expression =

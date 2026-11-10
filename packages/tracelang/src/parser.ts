@@ -21,7 +21,6 @@ export type ParseResult = {
   errors: ParseError[]
 }
 
-// Internal error used to recover from invalid syntax.
 class ParseFailure extends Error {
   constructor(
     message: string,
@@ -38,7 +37,6 @@ export class Parser {
 
   constructor(private readonly tokens: Token[]) {}
 
-  // Start parsing the entire token list.
   parse(): ParseResult {
     const statements: Statement[] = []
 
@@ -59,11 +57,14 @@ export class Parser {
     }
   }
 
-  // Parse a variable declaration or expression statement.
   private parseDeclaration(): Statement | null {
     const declarationStart = this.current
 
     try {
+      if (this.match('If')) {
+        return this.ifStatement()
+      }
+
       if (this.match('Let', 'Const')) {
         return this.variableDeclaration(this.previous())
       }
@@ -80,19 +81,15 @@ export class Parser {
         column: error.token.column,
       })
 
-      // Make sure the parser always makes progress.
       if (this.current === declarationStart && !this.isAtEnd()) {
         this.advance()
       }
 
       this.synchronize()
-
       return null
     }
   }
 
-  // Parse: let name = expression;
-  // Parse: const name = expression;
   private variableDeclaration(keyword: Token): Statement {
     const name = this.consume(
       'Identifier',
@@ -125,7 +122,6 @@ export class Parser {
     }
   }
 
-  // Parse: expression;
   private expressionStatement(): Statement {
     const expression = this.expression()
 
@@ -140,12 +136,65 @@ export class Parser {
     }
   }
 
-  // Expression parsing starts at the lowest precedence.
+  // Parse if (condition) { ... } else { ... }
+  private ifStatement(): Statement {
+    this.consume(
+      'LeftParen',
+      "Expected '(' after 'if'.",
+    )
+
+    const condition = this.expression()
+
+    this.consume(
+      'RightParen',
+      "Expected ')' after if condition.",
+    )
+
+    const thenBranch = this.block()
+
+    let elseBranch: Statement[] | null = null
+
+    if (this.match('Else')) {
+      elseBranch = this.block()
+    }
+
+    return {
+      kind: 'IfStatement',
+      condition,
+      thenBranch,
+      elseBranch,
+    }
+  }
+
+  // Parse statements between opening and closing braces.
+  private block(): Statement[] {
+    this.consume(
+      'LeftBrace',
+      "Expected '{' before block.",
+    )
+
+    const statements: Statement[] = []
+
+    while (!this.check('RightBrace') && !this.isAtEnd()) {
+      const statement = this.parseDeclaration()
+
+      if (statement !== null) {
+        statements.push(statement)
+      }
+    }
+
+    this.consume(
+      'RightBrace',
+      "Expected '}' after block.",
+    )
+
+    return statements
+  }
+
   private expression(): Expression {
     return this.equality()
   }
 
-  // Equality: == !=
   private equality(): Expression {
     let expression = this.comparison()
 
@@ -164,7 +213,6 @@ export class Parser {
     return expression
   }
 
-  // Comparison: < <= > >=
   private comparison(): Expression {
     let expression = this.term()
 
@@ -190,7 +238,6 @@ export class Parser {
     return expression
   }
 
-  // Addition and subtraction: + -
   private term(): Expression {
     let expression = this.factor()
 
@@ -209,7 +256,6 @@ export class Parser {
     return expression
   }
 
-  // Multiplication, division and remainder: * / %
   private factor(): Expression {
     let expression = this.unary()
 
@@ -228,7 +274,6 @@ export class Parser {
     return expression
   }
 
-  // Unary expressions: !value and -value
   private unary(): Expression {
     if (this.match('Bang', 'Minus')) {
       const operator = this.previous()
@@ -244,7 +289,6 @@ export class Parser {
     return this.primary()
   }
 
-  // Values, identifiers and grouped expressions.
   private primary(): Expression {
     if (this.match('Number', 'String')) {
       return {
@@ -301,7 +345,6 @@ export class Parser {
     )
   }
 
-  // Check whether the next token matches any supplied kind.
   private match(...kinds: TokenKind[]): boolean {
     for (const kind of kinds) {
       if (this.check(kind)) {
@@ -313,7 +356,6 @@ export class Parser {
     return false
   }
 
-  // Check the next token without consuming it.
   private check(kind: TokenKind): boolean {
     if (this.isAtEnd()) {
       return kind === 'EOF'
@@ -322,7 +364,6 @@ export class Parser {
     return this.peek().kind === kind
   }
 
-  // Consume a required token or report an error.
   private consume(
     kind: TokenKind,
     message: string,
@@ -334,7 +375,6 @@ export class Parser {
     throw new ParseFailure(message, this.peek())
   }
 
-  // Move to the next token.
   private advance(): Token {
     if (!this.isAtEnd()) {
       this.current += 1
@@ -355,7 +395,6 @@ export class Parser {
     return this.tokens[this.current - 1]!
   }
 
-  // Continue parsing from the next likely statement.
   private synchronize(): void {
     while (!this.isAtEnd()) {
       if (this.previous().kind === 'Semicolon') {
@@ -368,7 +407,8 @@ export class Parser {
         this.check('Fn') ||
         this.check('If') ||
         this.check('While') ||
-        this.check('Return')
+        this.check('Return') ||
+        this.check('RightBrace')
       ) {
         return
       }
@@ -378,7 +418,6 @@ export class Parser {
   }
 }
 
-// Public helper: convert tokens into an AST.
 export function parseTokens(tokens: Token[]): ParseResult {
   return new Parser(tokens).parse()
 }
