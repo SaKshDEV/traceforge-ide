@@ -136,35 +136,39 @@ export class Parser {
     }
   }
 
-  // Parse if (condition) { ... } else { ... }
-  private ifStatement(): Statement {
-    this.consume(
-      'LeftParen',
-      "Expected '(' after 'if'.",
-    )
+private ifStatement(): Statement {
+  this.consume(
+    'LeftParen',
+    "Expected '(' after 'if'.",
+  )
 
-    const condition = this.expression()
+  const condition = this.expression()
 
-    this.consume(
-      'RightParen',
-      "Expected ')' after if condition.",
-    )
+  this.consume(
+    'RightParen',
+    "Expected ')' after if condition.",
+  )
 
-    const thenBranch = this.block()
+  const thenBranch = this.block()
 
-    let elseBranch: Statement[] | null = null
+  let elseBranch: Statement[] | null = null
 
-    if (this.match('Else')) {
+  if (this.match('Else')) {
+    if (this.match('If')) {
+      // else if is stored as a nested IfStatement.
+      elseBranch = [this.ifStatement()]
+    } else {
       elseBranch = this.block()
     }
-
-    return {
-      kind: 'IfStatement',
-      condition,
-      thenBranch,
-      elseBranch,
-    }
   }
+
+  return {
+    kind: 'IfStatement',
+    condition,
+    thenBranch,
+    elseBranch,
+  }
+}
 
   // Parse statements between opening and closing braces.
   private block(): Statement[] {
