@@ -26,38 +26,90 @@ export type SemanticResult = {
 
 type ValueType = 'number' | 'string' | 'boolean' | 'null' | 'unknown'
 
+type VariableInfo = {
+  token: Token
+  type: ValueType
+  used: boolean
+}
+
 export class SemanticAnalyzer {
-  private declaredVariables = new Map<string, Token>()
-  private variableTypes = new Map<string, ValueType>()
+  private scopes: Map<string, VariableInfo>[] = []
   private errors: SemanticError[] = []
   private warnings: SemanticWarning[] = []
-  private usedVariables = new Set<string>()
 
   analyze(program: Program): SemanticResult {
-    this.declaredVariables.clear()
-    this.variableTypes.clear()
+    this.scopes = []
     this.errors = []
     this.warnings = []
-    this.usedVariables.clear()
+
+    this.beginScope()
 
     for (const statement of program.statements) {
       this.analyzeStatement(statement)
     }
 
-    for (const [name, token] of this.declaredVariables) {
-      if (!this.usedVariables.has(name)) {
-        this.warnings.push({
-          message: `Variable '${name}' is declared but never used.`,
-          line: token.line,
-          column: token.column,
-        })
-      }
-    }
+    this.endScope()
 
     return {
       errors: this.errors,
       warnings: this.warnings,
     }
+  }
+
+  private beginScope(): void {
+    this.scopes.push(new Map())
+  }
+
+  private endScope(): void {
+    const scope = this.scopes.pop()
+
+    if (!scope) return
+
+    for (const [name, variable] of scope) {
+      if (!variable.used) {
+        this.warnings.push({
+          message: `Variable '${name}' is declared but never used.`,
+          line: variable.token.line,
+          column: variable.token.column,
+        })
+      }
+    }
+  }
+
+  private declareVariable(
+    name: string,
+    token: Token,
+    type: ValueType,
+  ): void {
+    const currentScope = this.scopes[this.scopes.length - 1]
+
+    if (!currentScope) return
+
+    if (currentScope.has(name)) {
+      this.addError(
+        `Variable '${name}' is already declared.`,
+        token,
+      )
+      return
+    }
+
+    currentScope.set(name, {
+      token,
+      type,
+      used: false,
+    })
+  }
+
+  private resolveVariable(name: string): VariableInfo | undefined {
+    for (let i = this.scopes.length - 1; i >= 0; i--) {
+      const variable = this.scopes[i]?.get(name)
+
+      if (variable) {
+        return variable
+      }
+    }
+
+    return undefined
   }
 
   private analyzeStatement(statement: Statement): void {
@@ -86,14 +138,22 @@ export class SemanticAnalyzer {
         )
       }
 
+      this.beginScope()
+
       for (const child of statement.thenBranch) {
         this.analyzeStatement(child)
       }
 
+      this.endScope()
+
       if (statement.elseBranch !== null) {
+        this.beginScope()
+
         for (const child of statement.elseBranch) {
           this.analyzeStatement(child)
         }
+
+        this.endScope()
       }
     }
   }
@@ -101,23 +161,16 @@ export class SemanticAnalyzer {
   private analyzeVariableDeclaration(
     declaration: Extract<Statement, { kind: 'VariableDeclaration' }>,
   ): void {
-    const variableName = declaration.name.lexeme
-
     const inferredType =
       declaration.initializer === null
         ? 'unknown'
         : this.inferExpressionType(declaration.initializer)
 
-    if (this.declaredVariables.has(variableName)) {
-      this.addError(
-        `Variable '${variableName}' is already declared.`,
-        declaration.name,
-      )
-      return
-    }
-
-    this.declaredVariables.set(variableName, declaration.name)
-    this.variableTypes.set(variableName, inferredType)
+    this.declareVariable(
+      declaration.name.lexeme,
+      declaration.name,
+      inferredType,
+    )
   }
 
   private inferExpressionType(expression: Expression): ValueType {
@@ -126,18 +179,20 @@ export class SemanticAnalyzer {
         return this.getLiteralType(expression.value)
 
       case 'IdentifierExpression': {
-        const variableName = expression.name.lexeme
+        const variable = this.resolveVariable(
+          expression.name.lexeme,
+        )
 
-        if (!this.declaredVariables.has(variableName)) {
+        if (!variable) {
           this.addError(
-            `Variable '${variableName}' is not declared.`,
+            `Variable '${expression.name.lexeme}' is not declared.`,
             expression.name,
           )
           return 'unknown'
         }
 
-        this.usedVariables.add(variableName)
-        return this.variableTypes.get(variableName) ?? 'unknown'
+        variable.used = true
+        return variable.type
       }
 
       case 'GroupingExpression':
@@ -242,7 +297,7 @@ export class SemanticAnalyzer {
         }
 
         return 'unknown'
-      }
+    }
     }
 
     return 'unknown'
