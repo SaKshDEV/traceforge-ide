@@ -35,7 +35,7 @@ export class Parser {
   private current = 0
   private readonly errors: ParseError[] = []
 
-  constructor(private readonly tokens: Token[]) {}
+  constructor(private readonly tokens: Token[]) { }
 
   parse(): ParseResult {
     const statements: Statement[] = []
@@ -136,39 +136,39 @@ export class Parser {
     }
   }
 
-private ifStatement(): Statement {
-  this.consume(
-    'LeftParen',
-    "Expected '(' after 'if'.",
-  )
+  private ifStatement(): Statement {
+    this.consume(
+      'LeftParen',
+      "Expected '(' after 'if'.",
+    )
 
-  const condition = this.expression()
+    const condition = this.expression()
 
-  this.consume(
-    'RightParen',
-    "Expected ')' after if condition.",
-  )
+    this.consume(
+      'RightParen',
+      "Expected ')' after if condition.",
+    )
 
-  const thenBranch = this.block()
+    const thenBranch = this.block()
 
-  let elseBranch: Statement[] | null = null
+    let elseBranch: Statement[] | null = null
 
-  if (this.match('Else')) {
-    if (this.match('If')) {
-      // else if is stored as a nested IfStatement.
-      elseBranch = [this.ifStatement()]
-    } else {
-      elseBranch = this.block()
+    if (this.match('Else')) {
+      if (this.match('If')) {
+        // else if is stored as a nested IfStatement.
+        elseBranch = [this.ifStatement()]
+      } else {
+        elseBranch = this.block()
+      }
+    }
+
+    return {
+      kind: 'IfStatement',
+      condition,
+      thenBranch,
+      elseBranch,
     }
   }
-
-  return {
-    kind: 'IfStatement',
-    condition,
-    thenBranch,
-    elseBranch,
-  }
-}
 
   // Parse statements between opening and closing braces.
   private block(): Statement[] {
@@ -196,7 +196,42 @@ private ifStatement(): Statement {
   }
 
   private expression(): Expression {
-    return this.equality()
+    return this.logicalOr()
+  }
+  private logicalOr(): Expression {
+    let expression = this.logicalAnd()
+
+    while (this.match('OrOr')) {
+      const operator = this.previous()
+      const right = this.logicalAnd()
+
+      expression = {
+        kind: 'BinaryExpression',
+        left: expression,
+        operator,
+        right,
+      }
+    }
+
+    return expression
+  }
+
+  private logicalAnd(): Expression {
+    let expression = this.equality()
+
+    while (this.match('AndAnd')) {
+      const operator = this.previous()
+      const right = this.equality()
+
+      expression = {
+        kind: 'BinaryExpression',
+        left: expression,
+        operator,
+        right,
+      }
+    }
+
+    return expression
   }
 
   private equality(): Expression {

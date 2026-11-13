@@ -232,6 +232,27 @@ export class SemanticAnalyzer {
         const operator = expression.operator
 
         if (
+          operator.kind === 'AndAnd' ||
+          operator.kind === 'OrOr'
+        ) {
+          if (leftType !== 'boolean' && leftType !== 'unknown') {
+            this.addError(
+              `Left operand of '${operator.lexeme}' must be boolean.`,
+              operator,
+            )
+          }
+
+          if (rightType !== 'boolean' && rightType !== 'unknown') {
+            this.addError(
+              `Right operand of '${operator.lexeme}' must be boolean.`,
+              operator,
+            )
+          }
+
+          return 'boolean'
+        }
+
+        if (
           operator.kind === 'Plus' ||
           operator.kind === 'Minus' ||
           operator.kind === 'Star' ||
@@ -297,7 +318,7 @@ export class SemanticAnalyzer {
         }
 
         return 'unknown'
-    }
+      }
     }
 
     return 'unknown'
