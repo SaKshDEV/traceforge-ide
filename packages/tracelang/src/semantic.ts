@@ -155,6 +155,32 @@ export class SemanticAnalyzer {
 
         this.endScope()
       }
+
+      return
+    }
+
+    if (statement.kind === 'WhileStatement') {
+      const conditionType = this.inferExpressionType(
+        statement.condition,
+      )
+
+      if (
+        conditionType !== 'boolean' &&
+        conditionType !== 'unknown'
+      ) {
+        this.addError(
+          'While condition must be a boolean.',
+          this.getExpressionToken(statement.condition),
+        )
+      }
+
+      this.beginScope()
+
+      for (const child of statement.body) {
+        this.analyzeStatement(child)
+      }
+
+      this.endScope()
     }
   }
 

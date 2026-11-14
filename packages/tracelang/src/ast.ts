@@ -9,6 +9,7 @@ export type Statement =
   | VariableDeclaration
   | ExpressionStatement
   | IfStatement
+  | WhileStatement
 
 export type VariableDeclaration = {
   kind: 'VariableDeclaration'
@@ -27,6 +28,11 @@ export type IfStatement = {
   condition: Expression
   thenBranch: Statement[]
   elseBranch: Statement[] | null
+}
+export type WhileStatement = {
+  kind: 'WhileStatement'
+  condition: Expression
+  body: Statement[]
 }
 
 export type Expression =

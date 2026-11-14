@@ -35,7 +35,7 @@ export class Parser {
   private current = 0
   private readonly errors: ParseError[] = []
 
-  constructor(private readonly tokens: Token[]) { }
+  constructor(private readonly tokens: Token[]) {}
 
   parse(): ParseResult {
     const statements: Statement[] = []
@@ -63,6 +63,10 @@ export class Parser {
     try {
       if (this.match('If')) {
         return this.ifStatement()
+      }
+
+      if (this.match('While')) {
+        return this.whileStatement()
       }
 
       if (this.match('Let', 'Const')) {
@@ -137,17 +141,11 @@ export class Parser {
   }
 
   private ifStatement(): Statement {
-    this.consume(
-      'LeftParen',
-      "Expected '(' after 'if'.",
-    )
+    this.consume('LeftParen', "Expected '(' after 'if'.")
 
     const condition = this.expression()
 
-    this.consume(
-      'RightParen',
-      "Expected ')' after if condition.",
-    )
+    this.consume('RightParen', "Expected ')' after if condition.")
 
     const thenBranch = this.block()
 
@@ -155,7 +153,6 @@ export class Parser {
 
     if (this.match('Else')) {
       if (this.match('If')) {
-        // else if is stored as a nested IfStatement.
         elseBranch = [this.ifStatement()]
       } else {
         elseBranch = this.block()
@@ -170,12 +167,30 @@ export class Parser {
     }
   }
 
-  // Parse statements between opening and closing braces.
-  private block(): Statement[] {
+  private whileStatement(): Statement {
     this.consume(
-      'LeftBrace',
-      "Expected '{' before block.",
+      'LeftParen',
+      "Expected '(' after 'while'.",
     )
+
+    const condition = this.expression()
+
+    this.consume(
+      'RightParen',
+      "Expected ')' after while condition.",
+    )
+
+    const body = this.block()
+
+    return {
+      kind: 'WhileStatement',
+      condition,
+      body,
+    }
+  }
+
+  private block(): Statement[] {
+    this.consume('LeftBrace', "Expected '{' before block.")
 
     const statements: Statement[] = []
 
@@ -187,10 +202,7 @@ export class Parser {
       }
     }
 
-    this.consume(
-      'RightBrace',
-      "Expected '}' after block.",
-    )
+    this.consume('RightBrace', "Expected '}' after block.")
 
     return statements
   }
@@ -198,6 +210,7 @@ export class Parser {
   private expression(): Expression {
     return this.logicalOr()
   }
+
   private logicalOr(): Expression {
     let expression = this.logicalAnd()
 
@@ -337,24 +350,15 @@ export class Parser {
     }
 
     if (this.match('True')) {
-      return {
-        kind: 'LiteralExpression',
-        value: true,
-      }
+      return { kind: 'LiteralExpression', value: true }
     }
 
     if (this.match('False')) {
-      return {
-        kind: 'LiteralExpression',
-        value: false,
-      }
+      return { kind: 'LiteralExpression', value: false }
     }
 
     if (this.match('Null')) {
-      return {
-        kind: 'LiteralExpression',
-        value: null,
-      }
+      return { kind: 'LiteralExpression', value: null }
     }
 
     if (this.match('Identifier')) {
@@ -367,10 +371,7 @@ export class Parser {
     if (this.match('LeftParen')) {
       const expression = this.expression()
 
-      this.consume(
-        'RightParen',
-        "Expected ')' after expression.",
-      )
+      this.consume('RightParen', "Expected ')' after expression.")
 
       return {
         kind: 'GroupingExpression',
@@ -378,10 +379,7 @@ export class Parser {
       }
     }
 
-    throw new ParseFailure(
-      'Expected an expression.',
-      this.peek(),
-    )
+    throw new ParseFailure('Expected an expression.', this.peek())
   }
 
   private match(...kinds: TokenKind[]): boolean {
@@ -403,10 +401,7 @@ export class Parser {
     return this.peek().kind === kind
   }
 
-  private consume(
-    kind: TokenKind,
-    message: string,
-  ): Token {
+  private consume(kind: TokenKind, message: string): Token {
     if (this.check(kind)) {
       return this.advance()
     }
