@@ -25,6 +25,7 @@ export type {
   GroupingExpression,
   UnaryExpression,
   BinaryExpression,
+  FunctionDeclaration,
 } from './ast.js'
 
 export type {

@@ -181,6 +181,26 @@ export class SemanticAnalyzer {
       }
 
       this.endScope()
+      return
+    }
+
+    if (statement.kind === 'FunctionDeclaration') {
+      this.beginScope()
+
+      for (const parameter of statement.parameters) {
+        this.declareVariable(
+          parameter.lexeme,
+          parameter,
+          'unknown',
+        )
+      }
+
+      for (const child of statement.body) {
+        this.analyzeStatement(child)
+      }
+
+      this.endScope()
+      return
     }
   }
 

@@ -61,6 +61,10 @@ export class Parser {
     const declarationStart = this.current
 
     try {
+      if (this.match('Fn')) {
+        return this.functionDeclaration()
+      }
+
       if (this.match('If')) {
         return this.ifStatement()
       }
@@ -91,6 +95,45 @@ export class Parser {
 
       this.synchronize()
       return null
+    }
+  }
+
+  private functionDeclaration(): Statement {
+    const name = this.consume(
+      'Identifier',
+      'Expected a function name after fn.',
+    )
+
+    this.consume(
+      'LeftParen',
+      "Expected '(' after function name.",
+    )
+
+    const parameters: Token[] = []
+
+    if (!this.check('RightParen')) {
+      do {
+        parameters.push(
+          this.consume(
+            'Identifier',
+            'Expected a parameter name.',
+          ),
+        )
+      } while (this.match('Comma'))
+    }
+
+    this.consume(
+      'RightParen',
+      "Expected ')' after function parameters.",
+    )
+
+    const body = this.block()
+
+    return {
+      kind: 'FunctionDeclaration',
+      name,
+      parameters,
+      body,
     }
   }
 
