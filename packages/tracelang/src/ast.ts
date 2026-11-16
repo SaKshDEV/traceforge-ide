@@ -1,3 +1,4 @@
+
 import type { Token, TokenLiteral } from './token.js'
 
 export type Program = {
@@ -30,6 +31,7 @@ export type IfStatement = {
   thenBranch: Statement[]
   elseBranch: Statement[] | null
 }
+
 export type WhileStatement = {
   kind: 'WhileStatement'
   condition: Expression
@@ -49,6 +51,7 @@ export type Expression =
   | GroupingExpression
   | UnaryExpression
   | BinaryExpression
+  | CallExpression
 
 export type LiteralExpression = {
   kind: 'LiteralExpression'
@@ -76,4 +79,10 @@ export type BinaryExpression = {
   left: Expression
   operator: Token
   right: Expression
+}
+
+export type CallExpression = {
+  kind: 'CallExpression'
+  callee: Token
+  arguments: Expression[]
 }

@@ -1,8 +1,8 @@
 
 import type {
+  Expression,
   Program,
   Statement,
-  Expression,
 } from './ast.js'
 
 import type { Token } from './token.js'
@@ -32,15 +32,22 @@ type VariableInfo = {
   used: boolean
 }
 
+type FunctionInfo = {
+  token: Token
+  parameterCount: number
+}
+
 export class SemanticAnalyzer {
   private scopes: Map<string, VariableInfo>[] = []
   private errors: SemanticError[] = []
   private warnings: SemanticWarning[] = []
+  private functions = new Map<string, FunctionInfo>()
 
   analyze(program: Program): SemanticResult {
     this.scopes = []
     this.errors = []
     this.warnings = []
+    this.functions = new Map()
 
     this.beginScope()
 
@@ -185,6 +192,21 @@ export class SemanticAnalyzer {
     }
 
     if (statement.kind === 'FunctionDeclaration') {
+      const functionName = statement.name.lexeme
+
+      if (this.functions.has(functionName)) {
+        this.addError(
+          `Function '${functionName}' is already declared.`,
+          statement.name,
+        )
+        return
+      }
+
+      this.functions.set(functionName, {
+        token: statement.name,
+        parameterCount: statement.parameters.length,
+      })
+
       this.beginScope()
 
       for (const parameter of statement.parameters) {
@@ -267,6 +289,36 @@ export class SemanticAnalyzer {
           }
 
           return 'boolean'
+        }
+
+        return 'unknown'
+      }
+
+      case 'CallExpression': {
+        for (const argument of expression.arguments) {
+          this.inferExpressionType(argument)
+        }
+
+        const functionInfo = this.functions.get(
+          expression.callee.lexeme,
+        )
+
+        if (!functionInfo) {
+          this.addError(
+            `Function '${expression.callee.lexeme}' is not declared.`,
+            expression.callee,
+          )
+          return 'unknown'
+        }
+
+        if (
+          expression.arguments.length !==
+          functionInfo.parameterCount
+        ) {
+          this.addError(
+            `Function '${expression.callee.lexeme}' expects ${functionInfo.parameterCount} argument(s), but got ${expression.arguments.length}.`,
+            expression.callee,
+          )
         }
 
         return 'unknown'
@@ -392,6 +444,9 @@ export class SemanticAnalyzer {
 
       case 'BinaryExpression':
         return expression.operator
+
+      case 'CallExpression':
+        return expression.callee
     }
   }
 

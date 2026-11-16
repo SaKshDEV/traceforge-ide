@@ -381,7 +381,45 @@ export class Parser {
       }
     }
 
-    return this.primary()
+    return this.call()
+  }
+
+  private call(): Expression {
+    let expression = this.primary()
+
+    while (this.match('LeftParen')) {
+      if (expression.kind !== 'IdentifierExpression') {
+        throw new ParseFailure(
+          'Only named functions can be called.',
+          this.previous(),
+        )
+      }
+
+      expression = this.finishCall(expression.name)
+    }
+
+    return expression
+  }
+
+  private finishCall(callee: Token): Expression {
+    const args: Expression[] = []
+
+    if (!this.check('RightParen')) {
+      do {
+        args.push(this.expression())
+      } while (this.match('Comma'))
+    }
+
+    this.consume(
+      'RightParen',
+      "Expected ')' after function arguments.",
+    )
+
+    return {
+      kind: 'CallExpression',
+      callee,
+      arguments: args,
+    }
   }
 
   private primary(): Expression {
