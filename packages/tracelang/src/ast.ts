@@ -12,6 +12,7 @@ export type Statement =
   | IfStatement
   | WhileStatement
   | FunctionDeclaration
+  | ReturnStatement
 
 export type VariableDeclaration = {
   kind: 'VariableDeclaration'
@@ -43,6 +44,11 @@ export type FunctionDeclaration = {
   name: Token
   parameters: Token[]
   body: Statement[]
+}
+export type ReturnStatement = {
+  kind: 'ReturnStatement'
+  keyword: Token
+  value: Expression | null
 }
 
 export type Expression =

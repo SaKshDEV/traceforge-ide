@@ -27,6 +27,7 @@ export type {
   BinaryExpression,
   FunctionDeclaration,
   CallExpression,
+  ReturnStatement
 } from './ast.js'
 
 export type {

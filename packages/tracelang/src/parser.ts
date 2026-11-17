@@ -77,6 +77,10 @@ export class Parser {
         return this.variableDeclaration(this.previous())
       }
 
+      if (this.match('Return')) {
+        return this.returnStatement(this.previous())
+      }
+
       return this.expressionStatement()
     } catch (error) {
       if (!(error instanceof ParseFailure)) {
@@ -134,6 +138,25 @@ export class Parser {
       name,
       parameters,
       body,
+    }
+  }
+
+  private returnStatement(keyword: Token): Statement {
+    let value: Expression | null = null
+
+    if (!this.check('Semicolon')) {
+      value = this.expression()
+    }
+
+    this.consume(
+      'Semicolon',
+      "Expected ';' after return statement.",
+    )
+
+    return {
+      kind: 'ReturnStatement',
+      keyword,
+      value,
     }
   }
 

@@ -42,12 +42,14 @@ export class SemanticAnalyzer {
   private errors: SemanticError[] = []
   private warnings: SemanticWarning[] = []
   private functions = new Map<string, FunctionInfo>()
+  private functionDepth = 0
 
   analyze(program: Program): SemanticResult {
     this.scopes = []
     this.errors = []
     this.warnings = []
     this.functions = new Map()
+    this.functionDepth = 0
 
     this.beginScope()
 
@@ -127,6 +129,21 @@ export class SemanticAnalyzer {
 
     if (statement.kind === 'ExpressionStatement') {
       this.inferExpressionType(statement.expression)
+      return
+    }
+
+    if (statement.kind === 'ReturnStatement') {
+      if (this.functionDepth === 0) {
+        this.addError(
+          'Cannot return from outside a function.',
+          statement.keyword,
+        )
+      }
+
+      if (statement.value !== null) {
+        this.inferExpressionType(statement.value)
+      }
+
       return
     }
 
@@ -217,9 +234,13 @@ export class SemanticAnalyzer {
         )
       }
 
+      this.functionDepth += 1
+
       for (const child of statement.body) {
         this.analyzeStatement(child)
       }
+
+      this.functionDepth -= 1
 
       this.endScope()
       return
