@@ -24,7 +24,13 @@ export type SemanticResult = {
   warnings: SemanticWarning[]
 }
 
-type ValueType = 'number' | 'string' | 'boolean' | 'null' | 'unknown'
+type ValueType =
+  | 'number'
+  | 'string'
+  | 'boolean'
+  | 'null'
+  | 'void'
+  | 'unknown'
 
 type VariableInfo = {
   token: Token
@@ -35,6 +41,7 @@ type VariableInfo = {
 type FunctionInfo = {
   token: Token
   parameterCount: number
+  returnType: ValueType
 }
 
 export class SemanticAnalyzer {
@@ -43,6 +50,7 @@ export class SemanticAnalyzer {
   private warnings: SemanticWarning[] = []
   private functions = new Map<string, FunctionInfo>()
   private functionDepth = 0
+  private functionReturnTypes: ValueType[][] = []
 
   analyze(program: Program): SemanticResult {
     this.scopes = []
@@ -50,6 +58,7 @@ export class SemanticAnalyzer {
     this.warnings = []
     this.functions = new Map()
     this.functionDepth = 0
+    this.functionReturnTypes = []
 
     this.beginScope()
 
@@ -140,8 +149,19 @@ export class SemanticAnalyzer {
         )
       }
 
+      let returnType: ValueType = 'void'
+
       if (statement.value !== null) {
-        this.inferExpressionType(statement.value)
+        returnType = this.inferExpressionType(statement.value)
+      }
+
+      const currentReturnTypes =
+        this.functionReturnTypes[
+          this.functionReturnTypes.length - 1
+        ]
+
+      if (this.functionDepth > 0 && currentReturnTypes) {
+        currentReturnTypes.push(returnType)
       }
 
       return
@@ -219,10 +239,13 @@ export class SemanticAnalyzer {
         return
       }
 
-      this.functions.set(functionName, {
+      const functionInfo: FunctionInfo = {
         token: statement.name,
         parameterCount: statement.parameters.length,
-      })
+        returnType: 'unknown',
+      }
+
+      this.functions.set(functionName, functionInfo)
 
       this.beginScope()
 
@@ -235,16 +258,55 @@ export class SemanticAnalyzer {
       }
 
       this.functionDepth += 1
+      this.functionReturnTypes.push([])
 
       for (const child of statement.body) {
         this.analyzeStatement(child)
       }
 
+      const returnTypes =
+        this.functionReturnTypes.pop() ?? []
+
       this.functionDepth -= 1
+
+      functionInfo.returnType = this.inferFunctionReturnType(
+        returnTypes,
+        statement.name,
+      )
 
       this.endScope()
       return
     }
+  }
+
+  private inferFunctionReturnType(
+    returnTypes: ValueType[],
+    functionToken: Token,
+  ): ValueType {
+    if (returnTypes.length === 0) {
+      return 'void'
+    }
+
+    const concreteTypes = returnTypes.filter(
+      type => type !== 'unknown',
+    )
+
+    const distinctTypes = [...new Set(concreteTypes)]
+
+    if (distinctTypes.length > 1) {
+      this.addError(
+        `Function '${functionToken.lexeme}' has inconsistent return types: ${distinctTypes.join(' and ')}.`,
+        functionToken,
+      )
+
+      return 'unknown'
+    }
+
+    if (returnTypes.includes('unknown')) {
+      return 'unknown'
+    }
+
+    return distinctTypes[0] ?? 'void'
   }
 
   private analyzeVariableDeclaration(
@@ -342,7 +404,7 @@ export class SemanticAnalyzer {
           )
         }
 
-        return 'unknown'
+        return functionInfo.returnType
       }
 
       case 'BinaryExpression': {
@@ -471,7 +533,9 @@ export class SemanticAnalyzer {
     }
   }
 
-  private getLiteralType(value: string | number | boolean | null): ValueType {
+  private getLiteralType(
+    value: string | number | boolean | null,
+  ): ValueType {
     if (typeof value === 'number') return 'number'
     if (typeof value === 'string') return 'string'
     if (typeof value === 'boolean') return 'boolean'
