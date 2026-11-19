@@ -36,11 +36,13 @@ type VariableInfo = {
   token: Token
   type: ValueType
   used: boolean
+  isParameter: boolean
 }
 
 type FunctionInfo = {
   token: Token
   parameterCount: number
+  parameterTypes: ValueType[]
   returnType: ValueType
 }
 
@@ -98,24 +100,30 @@ export class SemanticAnalyzer {
     name: string,
     token: Token,
     type: ValueType,
-  ): void {
+    isParameter = false,
+  ): VariableInfo | undefined {
     const currentScope = this.scopes[this.scopes.length - 1]
 
-    if (!currentScope) return
+    if (!currentScope) return undefined
 
     if (currentScope.has(name)) {
       this.addError(
         `Variable '${name}' is already declared.`,
         token,
       )
-      return
+      return undefined
     }
 
-    currentScope.set(name, {
+    const variable: VariableInfo = {
       token,
       type,
       used: false,
-    })
+      isParameter,
+    }
+
+    currentScope.set(name, variable)
+
+    return variable
   }
 
   private resolveVariable(name: string): VariableInfo | undefined {
@@ -128,6 +136,102 @@ export class SemanticAnalyzer {
     }
 
     return undefined
+  }
+
+
+  private getKnownExpressionType(expression: Expression): ValueType {
+    switch (expression.kind) {
+      case 'LiteralExpression':
+        return this.getLiteralType(expression.value)
+
+      case 'IdentifierExpression':
+        return this.resolveVariable(expression.name.lexeme)?.type ?? 'unknown'
+
+      case 'GroupingExpression':
+        return this.getKnownExpressionType(expression.expression)
+
+      case 'UnaryExpression':
+        return expression.operator.kind === 'Minus'
+          ? 'number'
+          : 'boolean'
+
+      case 'CallExpression':
+        return this.functions.get(expression.callee.lexeme)?.returnType ?? 'unknown'
+
+      case 'BinaryExpression': {
+        const operator = expression.operator.kind
+
+        if (
+          operator === 'AndAnd' ||
+          operator === 'OrOr' ||
+          operator === 'Greater' ||
+          operator === 'GreaterEqual' ||
+          operator === 'Less' ||
+          operator === 'LessEqual' ||
+          operator === 'EqualEqual' ||
+          operator === 'BangEqual'
+        ) {
+          return 'boolean'
+        }
+
+        if (operator === 'Plus') {
+          const leftType = this.getKnownExpressionType(expression.left)
+          const rightType = this.getKnownExpressionType(expression.right)
+
+          if (leftType === 'string' || rightType === 'string') {
+            return 'string'
+          }
+
+          if (leftType === 'number' && rightType === 'number') {
+            return 'number'
+          }
+
+          return 'unknown'
+        }
+
+        if (
+          operator === 'Minus' ||
+          operator === 'Star' ||
+          operator === 'Slash' ||
+          operator === 'Percent'
+        ) {
+          return 'number'
+        }
+
+        return 'unknown'
+      }
+    }
+  }
+
+
+  private constrainExpressionType(
+    expression: Expression,
+    expectedType: ValueType,
+  ): void {
+    if (expectedType === 'unknown') return
+
+    if (expression.kind === 'IdentifierExpression') {
+      const variable = this.resolveVariable(
+        expression.name.lexeme,
+      )
+
+      if (
+        variable &&
+        variable.isParameter &&
+        variable.type === 'unknown'
+      ) {
+        variable.type = expectedType
+      }
+
+      return
+    }
+
+    if (expression.kind === 'GroupingExpression') {
+      this.constrainExpressionType(
+        expression.expression,
+        expectedType,
+      )
+    }
   }
 
   private analyzeStatement(statement: Statement): void {
@@ -157,7 +261,7 @@ export class SemanticAnalyzer {
 
       const currentReturnTypes =
         this.functionReturnTypes[
-          this.functionReturnTypes.length - 1
+        this.functionReturnTypes.length - 1
         ]
 
       if (this.functionDepth > 0 && currentReturnTypes) {
@@ -168,6 +272,11 @@ export class SemanticAnalyzer {
     }
 
     if (statement.kind === 'IfStatement') {
+      this.constrainExpressionType(
+        statement.condition,
+        'boolean',
+      )
+
       const conditionType = this.inferExpressionType(
         statement.condition,
       )
@@ -204,6 +313,11 @@ export class SemanticAnalyzer {
     }
 
     if (statement.kind === 'WhileStatement') {
+      this.constrainExpressionType(
+        statement.condition,
+        'boolean',
+      )
+
       const conditionType = this.inferExpressionType(
         statement.condition,
       )
@@ -242,6 +356,7 @@ export class SemanticAnalyzer {
       const functionInfo: FunctionInfo = {
         token: statement.name,
         parameterCount: statement.parameters.length,
+        parameterTypes: statement.parameters.map(() => 'unknown'),
         returnType: 'unknown',
       }
 
@@ -249,12 +364,19 @@ export class SemanticAnalyzer {
 
       this.beginScope()
 
+      const parameterVariables: VariableInfo[] = []
+
       for (const parameter of statement.parameters) {
-        this.declareVariable(
+        const variable = this.declareVariable(
           parameter.lexeme,
           parameter,
           'unknown',
+          true,
         )
+
+        if (variable) {
+          parameterVariables.push(variable)
+        }
       }
 
       this.functionDepth += 1
@@ -268,6 +390,10 @@ export class SemanticAnalyzer {
         this.functionReturnTypes.pop() ?? []
 
       this.functionDepth -= 1
+
+      functionInfo.parameterTypes = parameterVariables.map(
+        parameter => parameter.type,
+      )
 
       functionInfo.returnType = this.inferFunctionReturnType(
         returnTypes,
@@ -350,6 +476,16 @@ export class SemanticAnalyzer {
         return this.inferExpressionType(expression.expression)
 
       case 'UnaryExpression': {
+        const expectedType =
+          expression.operator.kind === 'Minus'
+            ? 'number'
+            : 'boolean'
+
+        this.constrainExpressionType(
+          expression.right,
+          expectedType,
+        )
+
         const rightType = this.inferExpressionType(expression.right)
 
         if (expression.operator.kind === 'Minus') {
@@ -378,9 +514,9 @@ export class SemanticAnalyzer {
       }
 
       case 'CallExpression': {
-        for (const argument of expression.arguments) {
-          this.inferExpressionType(argument)
-        }
+        const argumentTypes = expression.arguments.map(
+          argument => this.inferExpressionType(argument),
+        )
 
         const functionInfo = this.functions.get(
           expression.callee.lexeme,
@@ -404,13 +540,80 @@ export class SemanticAnalyzer {
           )
         }
 
+        const count = Math.min(
+          argumentTypes.length,
+          functionInfo.parameterTypes.length,
+        )
+
+        for (let i = 0; i < count; i++) {
+          const expectedType = functionInfo.parameterTypes[i]
+          const actualType = argumentTypes[i]
+
+          if (
+            expectedType &&
+            actualType &&
+            expectedType !== 'unknown' &&
+            actualType !== 'unknown' &&
+            expectedType !== actualType
+          ) {
+            this.addError(
+              `Argument ${i + 1} of function '${expression.callee.lexeme}' must be ${expectedType}, but got ${actualType}.`,
+              this.getExpressionToken(expression.arguments[i]!),
+            )
+          }
+        }
+
         return functionInfo.returnType
       }
 
       case 'BinaryExpression': {
+        const operator = expression.operator
+
+        if (
+          operator.kind === 'AndAnd' ||
+          operator.kind === 'OrOr'
+        ) {
+          this.constrainExpressionType(expression.left, 'boolean')
+          this.constrainExpressionType(expression.right, 'boolean')
+        } else if (
+          operator.kind === 'Minus' ||
+          operator.kind === 'Star' ||
+          operator.kind === 'Slash' ||
+          operator.kind === 'Percent' ||
+          operator.kind === 'Greater' ||
+          operator.kind === 'GreaterEqual' ||
+          operator.kind === 'Less' ||
+          operator.kind === 'LessEqual'
+        ) {
+          this.constrainExpressionType(expression.left, 'number')
+          this.constrainExpressionType(expression.right, 'number')
+        } else if (operator.kind === 'Plus') {
+          const initialLeft = this.getKnownExpressionType(expression.left)
+          const initialRight = this.getKnownExpressionType(expression.right)
+
+          if (initialLeft === 'string' || initialRight === 'string') {
+            this.constrainExpressionType(expression.left, 'string')
+            this.constrainExpressionType(expression.right, 'string')
+          } else {
+            this.constrainExpressionType(expression.left, 'number')
+            this.constrainExpressionType(expression.right, 'number')
+          }
+        } else if (
+          operator.kind === 'EqualEqual' ||
+          operator.kind === 'BangEqual'
+        ) {
+          const initialLeft = this.getKnownExpressionType(expression.left)
+          const initialRight = this.getKnownExpressionType(expression.right)
+
+          if (initialLeft !== 'unknown') {
+            this.constrainExpressionType(expression.right, initialLeft)
+          } else if (initialRight !== 'unknown') {
+            this.constrainExpressionType(expression.left, initialRight)
+          }
+        }
+
         const leftType = this.inferExpressionType(expression.left)
         const rightType = this.inferExpressionType(expression.right)
-        const operator = expression.operator
 
         if (
           operator.kind === 'AndAnd' ||
