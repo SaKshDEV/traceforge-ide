@@ -1,6 +1,7 @@
 
 import type {
   Expression,
+  Parameter,
   Program,
   Statement,
 } from './ast.js'
@@ -35,7 +36,7 @@ export class Parser {
   private current = 0
   private readonly errors: ParseError[] = []
 
-  constructor(private readonly tokens: Token[]) {}
+  constructor(private readonly tokens: Token[]) { }
 
   parse(): ParseResult {
     const statements: Statement[] = []
@@ -113,16 +114,28 @@ export class Parser {
       "Expected '(' after function name.",
     )
 
-    const parameters: Token[] = []
+    const parameters: Parameter[] = []
 
     if (!this.check('RightParen')) {
       do {
-        parameters.push(
-          this.consume(
-            'Identifier',
-            'Expected a parameter name.',
-          ),
+        const parameterName = this.consume(
+          'Identifier',
+          'Expected a parameter name.',
         )
+
+        let typeAnnotation: Token | null = null
+
+        if (this.match('Colon')) {
+          typeAnnotation = this.consume(
+            'Identifier',
+            'Expected a type name after ":".',
+          )
+        }
+
+        parameters.push({
+          name: parameterName,
+          typeAnnotation,
+        })
       } while (this.match('Comma'))
     }
 

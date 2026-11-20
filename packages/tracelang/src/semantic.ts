@@ -138,7 +138,6 @@ export class SemanticAnalyzer {
     return undefined
   }
 
-
   private getKnownExpressionType(expression: Expression): ValueType {
     switch (expression.kind) {
       case 'LiteralExpression':
@@ -203,6 +202,29 @@ export class SemanticAnalyzer {
     }
   }
 
+  private getParameterType(typeAnnotation: Token | null): ValueType {
+    if (typeAnnotation === null) {
+      return 'unknown'
+    }
+
+    switch (typeAnnotation.lexeme) {
+      case 'number':
+        return 'number'
+
+      case 'string':
+        return 'string'
+
+      case 'boolean':
+        return 'boolean'
+
+      default:
+        this.addError(
+          `Unknown parameter type '${typeAnnotation.lexeme}'. Expected number, string, or boolean.`,
+          typeAnnotation,
+        )
+        return 'unknown'
+    }
+  }
 
   private constrainExpressionType(
     expression: Expression,
@@ -261,7 +283,7 @@ export class SemanticAnalyzer {
 
       const currentReturnTypes =
         this.functionReturnTypes[
-        this.functionReturnTypes.length - 1
+          this.functionReturnTypes.length - 1
         ]
 
       if (this.functionDepth > 0 && currentReturnTypes) {
@@ -367,10 +389,14 @@ export class SemanticAnalyzer {
       const parameterVariables: VariableInfo[] = []
 
       for (const parameter of statement.parameters) {
+        const parameterType = this.getParameterType(
+          parameter.typeAnnotation,
+        )
+
         const variable = this.declareVariable(
-          parameter.lexeme,
-          parameter,
-          'unknown',
+          parameter.name.lexeme,
+          parameter.name,
+          parameterType,
           true,
         )
 

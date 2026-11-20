@@ -39,12 +39,18 @@ export type WhileStatement = {
   body: Statement[]
 }
 
+export type Parameter = {
+  name: Token
+  typeAnnotation: Token | null
+}
+
 export type FunctionDeclaration = {
   kind: 'FunctionDeclaration'
   name: Token
-  parameters: Token[]
+  parameters: Parameter[]
   body: Statement[]
 }
+
 export type ReturnStatement = {
   kind: 'ReturnStatement'
   keyword: Token

@@ -1,3 +1,4 @@
+
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
@@ -43,8 +44,9 @@ test('parses function parameters', () => {
   const fn = program.statements[0]
 
   assert.equal(fn.name.lexeme, 'add')
+
   assert.deepEqual(
-    fn.parameters.map(parameter => parameter.lexeme),
+    fn.parameters.map(parameter => parameter.name.lexeme),
     ['a', 'b'],
   )
 })
