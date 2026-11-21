@@ -103,6 +103,7 @@ export class Parser {
     }
   }
 
+
   private functionDeclaration(): Statement {
     const name = this.consume(
       'Identifier',
@@ -144,15 +145,26 @@ export class Parser {
       "Expected ')' after function parameters.",
     )
 
+    let returnTypeAnnotation: Token | null = null
+
+    if (this.match('Colon')) {
+      returnTypeAnnotation = this.consume(
+        'Identifier',
+        'Expected a return type after ":".',
+      )
+    }
+
     const body = this.block()
 
     return {
       kind: 'FunctionDeclaration',
       name,
       parameters,
+      returnTypeAnnotation,
       body,
     }
   }
+
 
   private returnStatement(keyword: Token): Statement {
     let value: Expression | null = null

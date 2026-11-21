@@ -225,6 +225,27 @@ export class SemanticAnalyzer {
         return 'unknown'
     }
   }
+  private getReturnType(typeAnnotation: Token | null): ValueType {
+    if (typeAnnotation === null) return 'unknown'
+
+    switch (typeAnnotation.lexeme) {
+      case 'number':
+        return 'number'
+
+      case 'string':
+        return 'string'
+
+      case 'boolean':
+        return 'boolean'
+
+      default:
+        this.addError(
+          `Unknown return type '${typeAnnotation.lexeme}'. Expected number, string, or boolean.`,
+          typeAnnotation,
+        )
+        return 'unknown'
+    }
+  }
 
   private constrainExpressionType(
     expression: Expression,
@@ -283,7 +304,7 @@ export class SemanticAnalyzer {
 
       const currentReturnTypes =
         this.functionReturnTypes[
-          this.functionReturnTypes.length - 1
+        this.functionReturnTypes.length - 1
         ]
 
       if (this.functionDepth > 0 && currentReturnTypes) {
@@ -375,11 +396,15 @@ export class SemanticAnalyzer {
         return
       }
 
+      const declaredReturnType = this.getReturnType(
+        statement.returnTypeAnnotation,
+      )
+
       const functionInfo: FunctionInfo = {
         token: statement.name,
         parameterCount: statement.parameters.length,
         parameterTypes: statement.parameters.map(() => 'unknown'),
-        returnType: 'unknown',
+        returnType: declaredReturnType,
       }
 
       this.functions.set(functionName, functionInfo)
@@ -400,9 +425,7 @@ export class SemanticAnalyzer {
           true,
         )
 
-        if (variable) {
-          parameterVariables.push(variable)
-        }
+        if (variable) parameterVariables.push(variable)
       }
 
       this.functionDepth += 1
@@ -421,10 +444,26 @@ export class SemanticAnalyzer {
         parameter => parameter.type,
       )
 
-      functionInfo.returnType = this.inferFunctionReturnType(
+      const inferredReturnType = this.inferFunctionReturnType(
         returnTypes,
         statement.name,
       )
+
+      if (
+        declaredReturnType !== 'unknown' &&
+        inferredReturnType !== 'unknown' &&
+        declaredReturnType !== inferredReturnType
+      ) {
+        this.addError(
+          `Function '${functionName}' declares return type '${declaredReturnType}' but returns '${inferredReturnType}'.`,
+          statement.name,
+        )
+      }
+
+      functionInfo.returnType =
+        declaredReturnType !== 'unknown'
+          ? declaredReturnType
+          : inferredReturnType
 
       this.endScope()
       return

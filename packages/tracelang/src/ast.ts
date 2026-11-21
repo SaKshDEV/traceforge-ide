@@ -48,6 +48,7 @@ export type FunctionDeclaration = {
   kind: 'FunctionDeclaration'
   name: Token
   parameters: Parameter[]
+  returnTypeAnnotation: Token | null
   body: Statement[]
 }
 
